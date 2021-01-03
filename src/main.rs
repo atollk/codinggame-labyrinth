@@ -356,16 +356,31 @@ impl GameMemory {
                 return Ordering::Equal;
             }
 
-            // If the end goal is reachable, do so.
-            let goal_tile = if self.way_back {
-                Tile::Start
+            // If the end goal is reachable, check if the path back is sufficiently short.
+            if self.way_back {
+                if state.map[*lhs] == Tile::Start {
+                    return Ordering::Less;
+                } else if state.map[*rhs] == Tile::Start {
+                    return Ordering::Greater;
+                }
             } else {
-                Tile::ControlRoom
-            };
-            if state.map[*lhs] == goal_tile {
-                return Ordering::Less;
-            } else if state.map[*rhs] == goal_tile {
-                return Ordering::Greater;
+                if state.map[*lhs] == Tile::ControlRoom {
+                    if let Some(start_pos) = state.map.look_for_tile(Tile::Start) {
+                        if let Some(path) = bfs(*lhs, start_pos, &state.map) {
+                            if path.len() as i32 <= state.alarm {
+                                return Ordering::Less;
+                            }
+                        }
+                    }
+                } else if state.map[*rhs] == Tile::ControlRoom {
+                    if let Some(start_pos) = state.map.look_for_tile(Tile::Start) {
+                        if let Some(path) = bfs(*rhs, start_pos, &state.map) {
+                            if path.len() as i32 <= state.alarm {
+                                return Ordering::Greater;
+                            }
+                        }
+                    }
+                }
             }
 
             // Prefer non-visited over visited tiles.
@@ -419,6 +434,7 @@ impl GameMemory {
 struct GameState {
     player_pos: TilePos,
     map: Map,
+    alarm: i32,
 }
 
 impl GameState {
@@ -509,7 +525,11 @@ fn one_game_step<T: AsRef<str>>(
     output_func: &mut dyn FnMut(&str),
 ) {
     let (player_pos, map) = parse_loop_input(&input);
-    let game_state = GameState { player_pos, map };
+    let game_state = GameState {
+        player_pos: player_pos,
+        map: map,
+        alarm: a,
+    };
     memory.update(&game_state);
     match game_state.next_move(memory) {
         Direction::Up => output_func("UP"),
@@ -771,6 +791,46 @@ const TASK6: ([&str; 15], i32) = (
     ],
     34,
 );
+const TASK7: ([&str; 15], i32) = (
+    [
+        "##############################",
+        "#............................#",
+        "#.#######################.#..#",
+        "#.....T.................#.#..#",
+        "#.....#.................#.#..#",
+        "#.#######################.#..#",
+        "#.....##......##......#....###",
+        "#...####..##..##..##..#..#...#",
+        "#.........##......##.....#...#",
+        "###########################.##",
+        "#......#......#..............#",
+        "#...C..#.....................#",
+        "#...#..####################..#",
+        "#............................#",
+        "##############################",
+    ],
+    71,
+);
+const TASK8: ([&str; 15], i32) = (
+    [
+        "##############################",
+        "#............................#",
+        "#..####################......#",
+        "#.....................#..C...#",
+        "#............###..##..#..#...#",
+        "##.###########################",
+        "#...#.....##......##.........#",
+        "#...#..#..##..##..##..####...#",
+        "###....#......##......##.....#",
+        "#..#.#######################.#",
+        "#..#.#................#......#",
+        "#..#.#................T......#",
+        "#..#.#######################.#",
+        "#............................#",
+        "##############################",
+    ],
+    72,
+);
 
 fn run_all() {
     assert!(simulate_main(TASK1.1, &TASK1.0).is_some());
@@ -780,14 +840,10 @@ fn run_all() {
     assert!(simulate_main(TASK4.1, &TASK4.0).is_some());
     assert!(simulate_main(TASK5.1, &TASK5.0).is_some());
     assert!(simulate_main(TASK6.1, &TASK6.0).is_some());
+    assert!(simulate_main(TASK7.1, &TASK7.0).is_some());
+    assert!(simulate_main(TASK8.1, &TASK8.0).is_some());
 }
 
 fn main() {
-    let task = TASK6;
-    let result = simulate_main(task.1, &task.0);
-    match result {
-        None => println!("Could not solve."),
-        Some(i) => println!("Solved with {} fuel left.", i),
-    }
-//    run_all();
+    run_all();
 }
